@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    /* File Layout - vital for keeping src and dist separate */
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    /* Environment Settings */
+    "module": "commonjs",       /* Easiest for Node.js backends */
+    "target": "es2020",         /* Good balance of modern features */
+    
+    /* Strictness - Keeping your strict settings is good! */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* Module Resolution */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Removed "types": [] so it automatically finds @types/node */
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
