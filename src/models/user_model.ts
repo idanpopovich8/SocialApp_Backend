@@ -1,17 +1,16 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+import { IUser } from '../types'; // <--- Import the central type
 
-// 1. Define the Interface
-// This extends your frontend "User" idea but adds Auth fields
-export interface IUser extends Document {
-  fullName: string;
-  email: string;
-  password: string;
-  image?: string;
+// 1. Extend the IUser interface with Mongoose's Document
+// This gives you the data fields (fullName, email...) PLUS database methods (.save, .remove...)
+export interface IUserDocument extends IUser, Document {
   _id: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // 2. Define the Schema
-const userSchema = new Schema<IUser>(
+const userSchema = new Schema<IUserDocument>(
   {
     fullName: {
       type: String,
@@ -20,20 +19,24 @@ const userSchema = new Schema<IUser>(
     email: {
       type: String,
       required: true,
-      unique: true, // No two users can have the same email
+      unique: true,
     },
     password: {
       type: String,
       required: true,
-      select: false, // Security: Don't return password by default in queries
+      select: false, // Security: Don't return password by default
     },
     image: {
-      type: String, // URL to the image
+      type: String,
+    },
+    refreshTokens: {
+      type: [String],
+      default: [],
     },
   },
-  { timestamps: true }, // Adds createdAt and updatedAt automatically
+  { timestamps: true },
 );
 
 // 3. Export the Model
-const UserModel = mongoose.model<IUser>('User', userSchema);
+const UserModel = mongoose.model<IUserDocument>('User', userSchema);
 export default UserModel;
