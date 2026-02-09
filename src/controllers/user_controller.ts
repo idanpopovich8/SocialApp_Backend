@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { OAuth2Client } from 'google-auth-library';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import UserModel from '../models/user_model';
@@ -22,6 +23,8 @@ const generateRefreshToken = (userId: string) => {
     },
   );
 };
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ------------------------------------------------------------------
 // Register
@@ -172,8 +175,6 @@ export const refresh = async (
     const newAccessToken = generateAccessToken(user._id.toString());
     const newRefreshToken = generateRefreshToken(user._id.toString());
 
-    // Rotate tokens: Remove old one, add new one
-    // 🟢 FIX: Handle potential undefined array safely
     user.refreshTokens = (user.refreshTokens || []).filter(
       (t) => t !== refreshToken,
     );
@@ -184,6 +185,68 @@ export const refresh = async (
     res.status(200).json({
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const googleSignin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      throw createError(400, 'Missing Google Credential');
+    }
+
+    // 1. Verify the Google Token
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID as string,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.email) {
+      throw createError(400, 'Invalid Google Token Payload');
+    }
+
+    const email = payload.email;
+
+    // 2. Check if user exists in OUR database
+    let user = await UserModel.findOne({ email });
+
+    if (!user) {
+      // 3. Create new user if they don't exist
+      user = await UserModel.create({
+        email: email,
+        fullName: payload.name || 'Google User',
+        image: payload.picture || '',
+        password: 'google-login-no-pass',
+      });
+    }
+
+    // 4. Generate tokens using your existing helpers
+    const accessToken = generateAccessToken(user._id.toString());
+    const refreshToken = generateRefreshToken(user._id.toString());
+
+    // Save refresh token
+    if (!user.refreshTokens) user.refreshTokens = [];
+    user.refreshTokens.push(refreshToken);
+    await user.save();
+
+    // 5. Respond
+    res.status(200).json({
+      id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      image: user.image,
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     next(error);
