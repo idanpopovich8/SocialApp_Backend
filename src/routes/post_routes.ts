@@ -8,14 +8,28 @@ import {
   getPostsByUserId,
 } from '../controllers/post_controller';
 import { authMiddleware } from '../middleware/auth_middleware';
+import { uploadMiddleware } from '../middleware/upload_middleware';
 
 const router = express.Router();
 
 router.get('/', getAllPosts);
 router.get('/user/:userId', getPostsByUserId);
 router.get('/:id', getPostById);
-router.post('/', authMiddleware, createPost);
-router.put('/:id', authMiddleware, updatePost);
+
+// 🟢 Add uploadMiddleware('posts').single('file') BEFORE the controller
+router.post(
+  '/',
+  authMiddleware,
+  uploadMiddleware('posts').single('image'),
+  createPost,
+);
+router.put(
+  '/:id',
+  authMiddleware,
+  uploadMiddleware('posts').single('image'),
+  updatePost,
+);
+
 router.delete('/:id', authMiddleware, deletePost);
 
 export default router;

@@ -1,4 +1,6 @@
 import { Response, NextFunction } from 'express';
+import fs from 'fs';
+import path from 'path';
 import mongoose from 'mongoose';
 import PostModel from '../models/post_model';
 import { IUserDocument } from '../models/user_model';
@@ -17,16 +19,30 @@ export const createPost = async (
   next: NextFunction,
 ) => {
   try {
-    const { content, image } = req.body;
+    // 🟢 1. Image is NOT in req.body anymore
+    const { content } = req.body;
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
     if (!content) throw createError(400, 'Content is required');
 
-    // Create Post (Without comments array)
+    // 🟢 2. Handle Image Upload Logic
+    let fullImageUrl = '';
+    if (req.file) {
+      // Dynamic Base URL Logic
+      let base = process.env.BASE_URL;
+      if (!base) {
+        const port = process.env.PORT || 5001;
+        base = `http://localhost:${port}/`;
+      }
+
+      fullImageUrl = base + 'public/uploads/posts/' + req.file.filename;
+    }
+
+    // Create Post
     const newPost = await PostModel.create({
       content,
-      image,
+      image: fullImageUrl, // 🟢 3. Save the generated URL
       createdBy: new mongoose.Types.ObjectId(userId),
       likes: [],
     });
@@ -54,7 +70,7 @@ export const createPost = async (
 };
 
 // ------------------------------------------------------------------
-// Get All Posts
+// Get All Posts (No changes needed here)
 // ------------------------------------------------------------------
 export const getAllPosts = async (
   req: AuthRequest,
@@ -129,7 +145,7 @@ export const updatePost = async (
 ) => {
   try {
     const { id } = req.params;
-    const { content, image } = req.body;
+    const { content } = req.body;
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
@@ -142,7 +158,44 @@ export const updatePost = async (
     }
 
     if (content) post.content = content;
-    if (image !== undefined) post.image = image;
+
+    // 🟢 HANDLE IMAGE UPDATE & DELETE OLD FILE
+    if (req.file) {
+      // 1. Check if there is an old image to delete
+      if (post.image) {
+        try {
+          // The DB URL looks like: "http://localhost:5001/public/uploads/posts/file-123.jpg"
+          // We need to extract just: "public/uploads/posts/file-123.jpg"
+
+          const urlParts = post.image.split('public/'); // Split at the folder name
+
+          if (urlParts.length > 1) {
+            const relativePath = 'public/' + urlParts[1]; // Rebuild the relative path
+
+            // Construct the absolute path on your computer
+            // __dirname is inside 'src/controllers', so we go up two levels to root
+            const absolutePath = path.join(__dirname, '../../', relativePath);
+
+            // Check if file exists and delete it
+            if (fs.existsSync(absolutePath)) {
+              fs.unlinkSync(absolutePath); // 🗑️ DELETE THE FILE
+              console.log(`Deleted old image: ${absolutePath}`);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to delete old image:', err);
+          // We allow the process to continue even if deletion fails
+        }
+      }
+
+      // 2. Save the NEW image URL
+      let base = process.env.BASE_URL;
+      if (!base) {
+        const port = process.env.PORT || 5001;
+        base = `http://localhost:${port}/`;
+      }
+      post.image = base + 'public/uploads/posts/' + req.file.filename;
+    }
 
     await post.save();
 
@@ -159,7 +212,6 @@ export const updatePost = async (
       content: post.content,
       image: post.image,
       likes: post.likes,
-      // 🟢 FIX: Same fix here
       comments: post.comments
         ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
             const commentCreator =
@@ -190,7 +242,7 @@ export const updatePost = async (
 };
 
 // ------------------------------------------------------------------
-// Delete Post
+// Delete Post (No changes)
 // ------------------------------------------------------------------
 export const deletePost = async (
   req: AuthRequest,
@@ -220,6 +272,7 @@ export const deletePost = async (
   }
 };
 
+// ... (Rest of the file: getPostsByUserId, getPostById can stay exactly as they were)
 export const getPostsByUserId = async (
   req: AuthRequest,
   res: Response,
@@ -228,12 +281,10 @@ export const getPostsByUserId = async (
   try {
     const { userId } = req.params;
 
-    // 1. Validation: Ensure userId exists
     if (!userId || typeof userId !== 'string') {
       throw createError(400, 'User ID is required');
     }
 
-    // 2. Query: Convert string to ObjectId explicitly
     const posts = await PostModel.find({
       createdBy: new mongoose.Types.ObjectId(userId),
       isDeleted: { $ne: true },
@@ -248,9 +299,7 @@ export const getPostsByUserId = async (
       })
       .sort({ createdAt: -1 });
 
-    // The rest of your mapping code is fine...
     const formattedPosts = posts.map((post) => {
-      // ... same mapping logic as before ...
       const creator = post.createdBy as unknown as IUserDocument;
       return {
         id: post._id.toString(),
@@ -292,9 +341,6 @@ export const getPostsByUserId = async (
   }
 };
 
-// ------------------------------------------------------------------
-// Get Single Post by ID
-// ------------------------------------------------------------------
 export const getPostById = async (
   req: AuthRequest,
   res: Response,
@@ -323,7 +369,6 @@ export const getPostById = async (
       throw createError(404, 'Post not found');
     }
 
-    // Format the single post to match your API structure
     const creator = post.createdBy as unknown as IUserDocument;
 
     const formattedPost = {
