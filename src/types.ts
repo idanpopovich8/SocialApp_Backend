@@ -32,6 +32,7 @@ export interface IPost {
   content: string;
   image?: string;
   likes: ILike[];
+  likesCount?: number; // 🟢 NEW: Track number of likes
 
   // 🟢 NOTE: In the DB, this doesn't exist.
   // But after "Virtual Populate", Mongoose fills this array for us.
@@ -42,4 +43,18 @@ export interface IPost {
   createdAt: Date;
   updatedAt?: Date;
   isDeleted?: boolean; // 🟢 NEW: For Soft Delete
+}
+export interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  participants: IUser[];
+  messages: Message[];
+  updatedAt: string;
+  createdAt: string;
 }

@@ -35,10 +35,23 @@ export const register = async (
   next: NextFunction,
 ) => {
   try {
-    const { fullName, email, password, image } = req.body;
+    const { fullName, email, password } = req.body;
 
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) throw createError(409, 'User already exists');
+
+    let base = process.env.BASE_URL;
+    if (!base) {
+      const port = process.env.PORT || 5001;
+      base = `http://localhost:${port}/`;
+    }
+
+    // 🟢 Create the full image URL
+    let fullImageUrl = '';
+    if (req.file) {
+      // result: http://localhost:5001/public/uploads/file-123.jpg
+      fullImageUrl = base + 'public/uploads/users/' + req.file.filename;
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -47,10 +60,9 @@ export const register = async (
       fullName,
       email,
       password: hashedPassword,
-      image,
+      image: fullImageUrl, // Now it saves "public/uploads/filename.jpg"
     });
 
-    // Generate Tokens
     const accessToken = generateAccessToken(newUser._id.toString());
     const refreshToken = generateRefreshToken(newUser._id.toString());
 

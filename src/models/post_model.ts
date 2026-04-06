@@ -15,6 +15,7 @@ const postSchema = new Schema<IPostDocument>(
       required: true,
     },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Likes stay embedded
+    likesCount: { type: Number, default: 0 }, // 🟢 Track number of likes
     isDeleted: { type: Boolean, default: false }, // Soft Delete flag
   },
   {
