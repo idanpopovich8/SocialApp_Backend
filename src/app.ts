@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import connectDB from './db';
 import userRoutes from './routes/user_routes';
 import postRoutes from './routes/post_routes';
+import commentRoutes from './routes/comment_routes';
 import { errorHandler } from './middleware/error_handler';
 import path from 'path';
 
@@ -26,7 +27,7 @@ app.get('/test', (req, res) => {
 });
 app.use('/api/auth', userRoutes);
 app.use('/api/posts', postRoutes);
-
+app.use('/api/comments', commentRoutes);
 app.use(errorHandler);
 
 app.get('/', (req: Request, res: Response) => {

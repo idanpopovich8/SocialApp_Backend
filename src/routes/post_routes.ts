@@ -6,6 +6,7 @@ import {
   updatePost,
   deletePost,
   getPostsByUserId,
+  toggleLike,
 } from '../controllers/post_controller';
 import { authMiddleware } from '../middleware/auth_middleware';
 import { uploadMiddleware } from '../middleware/upload_middleware';
@@ -31,5 +32,6 @@ router.put(
 );
 
 router.delete('/:id', authMiddleware, deletePost);
+router.post('/:id/like', authMiddleware, toggleLike);
 
 export default router;

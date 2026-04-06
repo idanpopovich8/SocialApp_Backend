@@ -55,6 +55,7 @@ export const createPost = async (
       content: newPost.content,
       image: newPost.image,
       likes: [],
+      likesCount: 0, // 🟢 NEW: Initialize likes count
       comments: [],
       commentsCount: 0,
       createdBy: {
@@ -98,11 +99,9 @@ export const getAllPosts = async (
         image: post.image,
         createdAt: post.createdAt,
         commentsCount: post.comments ? post.comments.length : 0,
+        likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
 
-        likes: post.likes.map((like: ILike) => ({
-          id: like._id ? like._id.toString() : '',
-          userId: like.userId.toString(),
-        })),
+        likes: post.likes.map((likeId: any) => likeId.toString()),
 
         comments: post.comments
           ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
@@ -211,6 +210,7 @@ export const updatePost = async (
       id: post._id.toString(),
       content: post.content,
       image: post.image,
+      likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
       likes: post.likes,
       comments: post.comments
         ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
@@ -307,10 +307,8 @@ export const getPostsByUserId = async (
         image: post.image,
         createdAt: post.createdAt,
         commentsCount: post.comments ? post.comments.length : 0,
-        likes: post.likes.map((like: ILike) => ({
-          id: like._id ? like._id.toString() : '',
-          userId: like.userId.toString(),
-        })),
+        likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+        likes: post.likes.map((likeId: any) => likeId.toString()),
         comments: post.comments
           ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
               const commentCreator =
@@ -377,11 +375,9 @@ export const getPostById = async (
       image: post.image,
       createdAt: post.createdAt,
       commentsCount: post.comments ? post.comments.length : 0,
+      likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
 
-      likes: post.likes.map((like: ILike) => ({
-        id: like._id ? like._id.toString() : '',
-        userId: like.userId.toString(),
-      })),
+      likes: post.likes.map((likeId: any) => likeId.toString()),
 
       comments: post.comments
         ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
@@ -408,6 +404,58 @@ export const getPostById = async (
     };
 
     res.status(200).json(formattedPost);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle Like on a Post
+// ------------------------------------------------------------------
+export const toggleLike = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId) throw createError(401, 'User not authenticated');
+    if (!id || typeof id !== 'string') {
+      throw createError(400, 'Post ID is required and must be a string');
+    }
+
+    const post = await PostModel.findOne({
+      _id: new mongoose.Types.ObjectId(id),
+      isDeleted: { $ne: true },
+    });
+
+    if (!post) throw createError(404, 'Post not found');
+
+    // 🟢 FIX 1: Check the array of ObjectIds directly
+    const userAlreadyLiked = post.likes.some(
+      (likeId: any) => likeId.toString() === userId.toString(),
+    );
+
+    if (userAlreadyLiked) {
+      // 🟢 FIX 2: Filter out the specific ObjectId
+      post.likes = post.likes.filter(
+        (likeId: any) => likeId.toString() !== userId.toString(),
+      );
+      post.likesCount = Math.max(0, (post.likesCount || 0) - 1); // 🟢 NEW: Decrement count
+    } else {
+      // 🟢 FIX 3: Push ONLY the ObjectId, not an object
+      post.likes.push(new mongoose.Types.ObjectId(userId) as any);
+      post.likesCount = (post.likesCount || 0) + 1; // 🟢 NEW: Increment count
+    }
+
+    await post.save();
+
+    res.status(200).json({
+      message: userAlreadyLiked ? 'Like removed' : 'Post liked',
+      liked: !userAlreadyLiked,
+      likesCount: post.likesCount,
+    });
   } catch (error) {
     next(error);
   }
