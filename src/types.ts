@@ -44,17 +44,22 @@ export interface IPost {
   updatedAt?: Date;
   isDeleted?: boolean; // 🟢 NEW: For Soft Delete
 }
-export interface Message {
-  id: string;
+// 5. Message Interface (for real-time messaging)
+export interface IMessage {
+  _id?: Types.ObjectId;
+  conversationId: Types.ObjectId; // Reference to Conversation
+  senderId: Types.ObjectId; // Reference to User
   content: string;
-  senderId: string;
-  createdAt: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
-export interface Conversation {
-  id: string;
-  participants: IUser[];
-  messages: Message[];
-  updatedAt: string;
-  createdAt: string;
+// 6. Conversation Interface (for group messaging)
+export interface IConversation {
+  _id?: Types.ObjectId;
+  participants: Types.ObjectId[]; // Array of User IDs
+  lastMessage?: Types.ObjectId; // Reference to last Message
+  lastMessageAt?: Date; // Timestamp for sorting
+  createdAt: Date;
+  updatedAt?: Date;
 }
