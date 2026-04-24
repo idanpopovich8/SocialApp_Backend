@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import UserModel from '../models/user_model';
 import createError from 'http-errors';
+import { AuthRequest } from '../middleware/auth_middleware';
 
 // ------------------------------------------------------------------
 // Helper Functions
@@ -26,6 +27,15 @@ const generateRefreshToken = (userId: string) => {
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+const resolveBaseUrl = (): string => {
+  let base = process.env.BASE_URL;
+  if (!base) {
+    const port = process.env.PORT || 5001;
+    base = `http://localhost:${port}/`;
+  }
+  return base;
+};
+
 // ------------------------------------------------------------------
 // Register
 // ------------------------------------------------------------------
@@ -40,14 +50,9 @@ export const register = async (
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) throw createError(409, 'User already exists');
 
-    let base = process.env.BASE_URL;
-    if (!base) {
-      const port = process.env.PORT || 5001;
-      base = `http://localhost:${port}/`;
-    }
-
     let fullImageUrl = '';
     if (req.file) {
+      const base = resolveBaseUrl();
       fullImageUrl = base + 'public/uploads/users/' + req.file.filename;
     }
 
@@ -243,6 +248,75 @@ export const googleSignin = async (
       image: user.image,
       accessToken,
       refreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getProfile = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) throw createError(401, 'Unauthorized');
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw createError(404, 'User not found');
+
+    res.status(200).json({
+      id: user._id.toString(),
+      fullName: user.fullName,
+      email: user.email,
+      image: user.image,
+      onlineStatus: user.onlineStatus,
+      lastSeen: user.lastSeen,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) throw createError(401, 'Unauthorized');
+
+    const { fullName } = req.body as { fullName?: string };
+    if (fullName !== undefined) {
+      if (typeof fullName !== 'string' || fullName.trim().length < 2) {
+        throw createError(400, 'fullName must contain at least 2 characters');
+      }
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw createError(404, 'User not found');
+
+    if (typeof fullName === 'string') {
+      user.fullName = fullName.trim();
+    }
+
+    if (req.file) {
+      const base = resolveBaseUrl();
+      user.image = base + 'public/uploads/users/' + req.file.filename;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      id: user._id.toString(),
+      fullName: user.fullName,
+      email: user.email,
+      image: user.image,
+      onlineStatus: user.onlineStatus,
+      lastSeen: user.lastSeen,
+      message: 'Profile updated successfully',
     });
   } catch (error) {
     next(error);

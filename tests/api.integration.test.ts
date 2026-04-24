@@ -124,13 +124,32 @@ describe('API integration', () => {
     expect(likeRes.status).toBe(200);
     expect(typeof likeRes.body.likesCount).toBe('number');
 
-    const listPosts = await request(app).get('/api/posts');
+    const listPosts = await request(app).get('/api/posts?limit=10&skip=0');
     expect(listPosts.status).toBe(200);
-    expect(Array.isArray(listPosts.body)).toBe(true);
+    expect(Array.isArray(listPosts.body.items)).toBe(true);
+    expect(typeof listPosts.body.total).toBe('number');
+    expect(typeof listPosts.body.hasMore).toBe('boolean');
 
     const getPost = await request(app).get(`/api/posts/${postId}`);
     expect(getPost.status).toBe(200);
     expect(getPost.body.id).toBe(postId);
+  });
+
+  it('user profile flow works (get and update me)', async () => {
+    const auth = await registerAndLogin('profile');
+
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${auth.accessToken}`);
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.id).toBe(auth.userId);
+
+    const updateRes = await request(app)
+      .put('/api/auth/me')
+      .set('Authorization', `Bearer ${auth.accessToken}`)
+      .send({ fullName: 'Updated Integration Name' });
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.fullName).toBe('Updated Integration Name');
   });
 
   it('conversation/message flow works including access control', async () => {
