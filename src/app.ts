@@ -8,11 +8,13 @@ import postRoutes from './routes/post_routes';
 import commentRoutes from './routes/comment_routes';
 import conversationRoutes from './routes/conversation_routes';
 import messageRoutes from './routes/message_routes';
+import aiRoutes from './routes/ai_routes';
 import { errorHandler } from './middleware/error_handler';
 import { setupSocketHandlers } from './socket/socket_handlers';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './docs/swagger';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -20,6 +22,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use('/public', express.static(path.join(__dirname, '../public')));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // Connect to Database
@@ -29,14 +37,15 @@ app.use((req, res, next) => {
   console.log(`Incoming Request: [${req.method}] ${req.originalUrl}`);
   next();
 });
-app.get('/test', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html'));
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 app.use('/api/auth', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(errorHandler);
 

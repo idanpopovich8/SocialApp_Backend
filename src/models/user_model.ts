@@ -33,6 +33,14 @@ const userSchema = new Schema<IUserDocument>(
       type: [String],
       default: [],
     },
+    onlineStatus: {
+      type: String,
+      enum: ['online', 'away', 'offline'],
+      default: 'offline',
+    },
+    lastSeen: {
+      type: Date,
+    },
   },
   { timestamps: true },
 );

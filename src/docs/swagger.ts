@@ -94,6 +94,41 @@ export const swaggerSpec = {
           updatedAt: { type: 'string', format: 'date-time' },
         },
       },
+      AIPostAssistRequest: {
+        type: 'object',
+        required: ['draft'],
+        properties: {
+          draft: { type: 'string', minLength: 10 },
+          intent: {
+            type: 'string',
+            enum: ['help-request', 'offer-help', 'general'],
+          },
+          tone: { type: 'string', enum: ['friendly', 'formal', 'short'] },
+        },
+      },
+      AIPostAssistResponse: {
+        type: 'object',
+        properties: {
+          message: { type: 'string' },
+          data: {
+            type: 'object',
+            properties: {
+              originalText: { type: 'string' },
+              improvedText: { type: 'string' },
+              summary: { type: 'string' },
+              hashtags: { type: 'array', items: { type: 'string' } },
+              category: {
+                type: 'string',
+                enum: ['help-request', 'offer-help', 'general'],
+              },
+              improvementNotes: {
+                type: 'array',
+                items: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
     },
   },
   paths: {
@@ -517,6 +552,34 @@ export const swaggerSpec = {
           },
         ],
         responses: { '200': { description: 'OK' } },
+      },
+    },
+    '/api/ai/post-assist': {
+      post: {
+        tags: ['AI'],
+        summary: 'Get AI rewrite suggestion for post draft',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/AIPostAssistRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Suggestion generated',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AIPostAssistResponse' },
+              },
+            },
+          },
+          '400': { description: 'Invalid input' },
+          '401': { description: 'Unauthorized' },
+          '429': { description: 'Rate limit reached' },
+        },
       },
     },
   },
