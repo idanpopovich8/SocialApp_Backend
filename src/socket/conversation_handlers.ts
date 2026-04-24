@@ -8,6 +8,7 @@ export const setupConversationHandlers = (
   io: SocketIOServer,
 ) => {
   const userId = socket.data.userId;
+  const currentUserId = new mongoose.Types.ObjectId(userId);
 
   /**
    * Event: conversation:create
@@ -73,7 +74,7 @@ export const setupConversationHandlers = (
         }
 
         const isParticipant = conversation.participants.some((participantId) =>
-          participantId.equals(new mongoose.Types.ObjectId(userId)),
+          participantId.equals(currentUserId),
         );
 
         if (!isParticipant) {
@@ -135,11 +136,14 @@ export const setupConversationHandlers = (
         const conversationId = new mongoose.Types.ObjectId(data.conversationId);
         const newUserId = new mongoose.Types.ObjectId(data.newUserId);
 
-        // Verify requester is in conversation (optional: could check if creator/admin)
         const conversation = await ConversationModel.findById(conversationId);
 
         if (!conversation) {
           return callback({ success: false, error: 'Conversation not found' });
+        }
+
+        if (!conversation.participants.some((p) => p.equals(currentUserId))) {
+          return callback({ success: false, error: 'Not a participant' });
         }
 
         // Check if user already in conversation
@@ -186,6 +190,10 @@ export const setupConversationHandlers = (
 
         if (!conversation) {
           return callback({ success: false, error: 'Conversation not found' });
+        }
+
+        if (!conversation.participants.some((p) => p.equals(currentUserId))) {
+          return callback({ success: false, error: 'Not a participant' });
         }
 
         // Remove user from participants

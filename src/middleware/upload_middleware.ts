@@ -2,11 +2,9 @@ import multer, { FileFilterCallback } from 'multer';
 import { Request } from 'express';
 import path from 'path';
 
-// This function returns a configured Multer instance for a specific folder
 export const uploadMiddleware = (folderName: string) => {
   const storage = multer.diskStorage({
     destination: (req: Request, file: Express.Multer.File, cb) => {
-      // 🟢 Dynamic folder path based on the argument
       const uploadPath = path.join(
         __dirname,
         `../../public/uploads/${folderName}`,

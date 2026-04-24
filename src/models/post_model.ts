@@ -14,9 +14,9 @@ const postSchema = new Schema<IPostDocument>(
       ref: 'User',
       required: true,
     },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Likes stay embedded
-    likesCount: { type: Number, default: 0 }, // 🟢 Track number of likes
-    isDeleted: { type: Boolean, default: false }, // Soft Delete flag
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    likesCount: { type: Number, default: 0 },
+    isDeleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,
@@ -25,8 +25,6 @@ const postSchema = new Schema<IPostDocument>(
   },
 );
 
-// 🟢 VIRTUAL FIELD definition
-// This tells Mongoose: "When I ask for 'comments', go look in the Comment collection"
 postSchema.virtual('comments', {
   ref: 'Comment',
   localField: '_id',

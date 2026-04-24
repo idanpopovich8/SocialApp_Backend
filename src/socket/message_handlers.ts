@@ -5,6 +5,7 @@ import ConversationModel from '../models/conversation_model';
 
 export const setupMessageHandlers = (socket: Socket, io: SocketIOServer) => {
   const userId = socket.data.userId;
+  const currentUserId = new mongoose.Types.ObjectId(userId);
 
   /**
    * Event: message:send
@@ -16,7 +17,7 @@ export const setupMessageHandlers = (socket: Socket, io: SocketIOServer) => {
     async (data: { conversationId: string; content: string }, callback) => {
       try {
         const conversationId = new mongoose.Types.ObjectId(data.conversationId);
-        const senderId = new mongoose.Types.ObjectId(userId);
+        const senderId = currentUserId;
 
         // Verify conversation exists and user is participant
         const conversation = await ConversationModel.findById(conversationId);
@@ -91,6 +92,14 @@ export const setupMessageHandlers = (socket: Socket, io: SocketIOServer) => {
         const conversationId = new mongoose.Types.ObjectId(data.conversationId);
         const limit = data.limit || 50;
         const skip = data.skip || 0;
+        const conversation = await ConversationModel.findById(conversationId);
+
+        if (!conversation) {
+          return callback({ success: false, error: 'Conversation not found' });
+        }
+        if (!conversation.participants.some((p) => p.equals(currentUserId))) {
+          return callback({ success: false, error: 'Not a participant' });
+        }
 
         // Get total count
         const totalCount = await MessageModel.countDocuments({
@@ -140,8 +149,11 @@ export const setupMessageHandlers = (socket: Socket, io: SocketIOServer) => {
         }
 
         // Verify ownership
-        if (!message.senderId.equals(new mongoose.Types.ObjectId(userId))) {
+        if (!message.senderId.equals(currentUserId)) {
           return callback({ success: false, error: 'Not authorized' });
+        }
+        if (!message.conversationId.equals(conversationId)) {
+          return callback({ success: false, error: 'Conversation mismatch' });
         }
 
         // Update message
@@ -189,8 +201,11 @@ export const setupMessageHandlers = (socket: Socket, io: SocketIOServer) => {
         }
 
         // Verify ownership
-        if (!message.senderId.equals(new mongoose.Types.ObjectId(userId))) {
+        if (!message.senderId.equals(currentUserId)) {
           return callback({ success: false, error: 'Not authorized' });
+        }
+        if (!message.conversationId.equals(conversationId)) {
+          return callback({ success: false, error: 'Conversation mismatch' });
         }
 
         // Delete message

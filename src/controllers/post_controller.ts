@@ -64,14 +64,12 @@ export const createPost = async (
   next: NextFunction,
 ) => {
   try {
-    // 🟢 1. Image is NOT in req.body anymore
     const { content } = req.body;
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
     if (!content) throw createError(400, 'Content is required');
 
-    // 🟢 2. Handle Image Upload Logic
     let fullImageUrl = '';
     if (req.file) {
       // Dynamic Base URL Logic
@@ -87,7 +85,7 @@ export const createPost = async (
     // Create Post
     const newPost = await PostModel.create({
       content,
-      image: fullImageUrl, // 🟢 3. Save the generated URL
+      image: fullImageUrl,
       createdBy: new mongoose.Types.ObjectId(userId),
       likes: [],
     });
@@ -100,7 +98,7 @@ export const createPost = async (
       content: newPost.content,
       image: newPost.image,
       likes: [],
-      likesCount: 0, // 🟢 NEW: Initialize likes count
+      likesCount: 0,
       comments: [],
       commentsCount: 0,
       createdBy: {
@@ -116,7 +114,7 @@ export const createPost = async (
 };
 
 // ------------------------------------------------------------------
-// Get All Posts (No changes needed here)
+// Get all posts
 // ------------------------------------------------------------------
 export const getAllPosts = async (
   req: AuthRequest,
@@ -146,7 +144,7 @@ export const getAllPosts = async (
           image: post.image,
           createdAt: post.createdAt,
           commentsCount: comments.length,
-          likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+          likesCount: post.likesCount || 0,
 
           likes: post.likes.map((likeId) => likeId.toString()),
           comments,
@@ -189,36 +187,26 @@ export const updatePost = async (
 
     if (content) post.content = content;
 
-    // 🟢 HANDLE IMAGE UPDATE & DELETE OLD FILE
+    // Replace image and remove old file
     if (req.file) {
-      // 1. Check if there is an old image to delete
       if (post.image) {
         try {
-          // The DB URL looks like: "http://localhost:5001/public/uploads/posts/file-123.jpg"
-          // We need to extract just: "public/uploads/posts/file-123.jpg"
-
-          const urlParts = post.image.split('public/'); // Split at the folder name
+          const urlParts = post.image.split('public/');
 
           if (urlParts.length > 1) {
-            const relativePath = 'public/' + urlParts[1]; // Rebuild the relative path
-
-            // Construct the absolute path on your computer
-            // __dirname is inside 'src/controllers', so we go up two levels to root
+            const relativePath = 'public/' + urlParts[1];
             const absolutePath = path.join(__dirname, '../../', relativePath);
 
-            // Check if file exists and delete it
             if (fs.existsSync(absolutePath)) {
-              fs.unlinkSync(absolutePath); // 🗑️ DELETE THE FILE
+              fs.unlinkSync(absolutePath);
               console.log(`Deleted old image: ${absolutePath}`);
             }
           }
         } catch (err) {
           console.error('Failed to delete old image:', err);
-          // We allow the process to continue even if deletion fails
         }
       }
 
-      // 2. Save the NEW image URL
       let base = process.env.BASE_URL;
       if (!base) {
         const port = process.env.PORT || 5001;
@@ -242,7 +230,7 @@ export const updatePost = async (
       id: post._id.toString(),
       content: post.content,
       image: post.image,
-      likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+      likesCount: post.likesCount || 0,
       likes: post.likes,
       comments,
       commentsCount: comments.length,
@@ -259,7 +247,7 @@ export const updatePost = async (
 };
 
 // ------------------------------------------------------------------
-// Delete Post (No changes)
+// Delete post
 // ------------------------------------------------------------------
 export const deletePost = async (
   req: AuthRequest,
@@ -279,7 +267,6 @@ export const deletePost = async (
       throw createError(403, 'You are not authorized to delete this post');
     }
 
-    // Soft Delete
     post.isDeleted = true;
     await post.save();
 
@@ -289,7 +276,6 @@ export const deletePost = async (
   }
 };
 
-// ... (Rest of the file: getPostsByUserId, getPostById can stay exactly as they were)
 export const getPostsByUserId = async (
   req: AuthRequest,
   res: Response,
@@ -327,7 +313,7 @@ export const getPostsByUserId = async (
           image: post.image,
           createdAt: post.createdAt,
           commentsCount: comments.length,
-          likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+          likesCount: post.likesCount || 0,
           likes: post.likes.map((likeId) => likeId.toString()),
           comments,
           createdBy: {
@@ -384,7 +370,7 @@ export const getPostById = async (
       image: post.image,
       createdAt: post.createdAt,
       commentsCount: comments.length,
-      likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+      likesCount: post.likesCount || 0,
 
       likes: post.likes.map((likeId) => likeId.toString()),
       comments,
@@ -425,21 +411,18 @@ export const toggleLike = async (
 
     if (!post) throw createError(404, 'Post not found');
 
-    // 🟢 FIX 1: Check the array of ObjectIds directly
     const userAlreadyLiked = post.likes.some(
       (likeId) => likeId.toString() === userId.toString(),
     );
 
     if (userAlreadyLiked) {
-      // 🟢 FIX 2: Filter out the specific ObjectId
       post.likes = post.likes.filter(
         (likeId) => likeId.toString() !== userId.toString(),
       );
-      post.likesCount = Math.max(0, (post.likesCount || 0) - 1); // 🟢 NEW: Decrement count
+      post.likesCount = Math.max(0, (post.likesCount || 0) - 1);
     } else {
-      // 🟢 FIX 3: Push ONLY the ObjectId, not an object
       post.likes.push(new mongoose.Types.ObjectId(userId));
-      post.likesCount = (post.likesCount || 0) + 1; // 🟢 NEW: Increment count
+      post.likesCount = (post.likesCount || 0) + 1;
     }
 
     await post.save();

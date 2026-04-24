@@ -46,10 +46,8 @@ export const register = async (
       base = `http://localhost:${port}/`;
     }
 
-    // 🟢 Create the full image URL
     let fullImageUrl = '';
     if (req.file) {
-      // result: http://localhost:5001/public/uploads/file-123.jpg
       fullImageUrl = base + 'public/uploads/users/' + req.file.filename;
     }
 
@@ -60,7 +58,7 @@ export const register = async (
       fullName,
       email,
       password: hashedPassword,
-      image: fullImageUrl, // Now it saves "public/uploads/filename.jpg"
+      image: fullImageUrl,
     });
 
     const accessToken = generateAccessToken(newUser._id.toString());
@@ -100,14 +98,11 @@ export const login = async (
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw createError(400, 'Invalid email or password');
 
-    // Generate Tokens
     const accessToken = generateAccessToken(user._id.toString());
     const refreshToken = generateRefreshToken(user._id.toString());
 
-    // Check if refreshTokens array exists, if not init it (for old users)
     if (!user.refreshTokens) user.refreshTokens = [];
 
-    // Save Refresh Token to DB
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -140,7 +135,6 @@ export const logout = async (
     const user = await UserModel.findOne({ refreshTokens: refreshToken });
 
     if (user) {
-      // 🟢 FIX: Handle potential undefined array safely
       user.refreshTokens = (user.refreshTokens || []).filter(
         (token) => token !== refreshToken,
       );
@@ -166,24 +160,20 @@ export const refresh = async (
 
     if (!refreshToken) throw createError(401, 'Refresh Token is required');
 
-    // 1. Verify the token signature
     const decoded = jwt.verify(
       refreshToken,
       process.env.JWT_REFRESH_SECRET || (process.env.JWT_SECRET as string),
     ) as { _id: string };
 
-    // 2. Check if token exists in DB
     const user = await UserModel.findById(decoded._id);
     if (!user) throw createError(401, 'User not found');
 
-    // 🟢 FIX: Check if array exists AND contains the token
     if (!user.refreshTokens || !user.refreshTokens.includes(refreshToken)) {
-      user.refreshTokens = []; // Security: Nuke all tokens
+      user.refreshTokens = [];
       await user.save();
       throw createError(403, 'Invalid Refresh Token');
     }
 
-    // 3. Issue new Access Token
     const newAccessToken = generateAccessToken(user._id.toString());
     const newRefreshToken = generateRefreshToken(user._id.toString());
 
@@ -215,7 +205,6 @@ export const googleSignin = async (
       throw createError(400, 'Missing Google Credential');
     }
 
-    // 1. Verify the Google Token
     const ticket = await client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID as string,
@@ -229,11 +218,9 @@ export const googleSignin = async (
 
     const email = payload.email;
 
-    // 2. Check if user exists in OUR database
     let user = await UserModel.findOne({ email });
 
     if (!user) {
-      // 3. Create new user if they don't exist
       user = await UserModel.create({
         email: email,
         fullName: payload.name || 'Google User',
@@ -242,16 +229,13 @@ export const googleSignin = async (
       });
     }
 
-    // 4. Generate tokens using your existing helpers
     const accessToken = generateAccessToken(user._id.toString());
     const refreshToken = generateRefreshToken(user._id.toString());
 
-    // Save refresh token
     if (!user.refreshTokens) user.refreshTokens = [];
     user.refreshTokens.push(refreshToken);
     await user.save();
 
-    // 5. Respond
     res.status(200).json({
       id: user._id,
       fullName: user.fullName,
