@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import MessageModel from '../src/models/message_model';
 
 let app: Express;
+jest.setTimeout(30000);
 
 const registerAndLogin = async (suffix: string) => {
   const email = `it_${suffix}_${Date.now()}@example.com`;
@@ -49,6 +50,7 @@ describe('API integration', () => {
     process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
     process.env.BASE_URL = 'http://localhost:5001/';
     process.env.FRONTEND_URL = 'http://localhost:5173';
+    process.env.AI_MOCK_MODE = 'true';
 
     const appModule = await import('../src/app');
     app = appModule.app;
@@ -185,5 +187,26 @@ describe('API integration', () => {
       .delete(`/api/messages/${message._id.toString()}`)
       .set('Authorization', `Bearer ${userA.accessToken}`);
     expect(deleteMessage.status).toBe(200);
+  });
+
+  it('ai post assist returns structured suggestion', async () => {
+    const auth = await registerAndLogin('aiAssist');
+
+    const aiRes = await request(app)
+      .post('/api/ai/post-assist')
+      .set('Authorization', `Bearer ${auth.accessToken}`)
+      .send({
+        draft:
+          'שלום אני מחפש המלצה ללפטופ ללימודים עם סוללה טובה ותקציב מוגבל ל-3000 שקלים',
+        intent: 'help-request',
+        tone: 'friendly',
+      });
+
+    expect(aiRes.status).toBe(200);
+    expect(aiRes.body.message).toBe('AI suggestion generated');
+    expect(aiRes.body.data).toBeTruthy();
+    expect(typeof aiRes.body.data.originalText).toBe('string');
+    expect(typeof aiRes.body.data.improvedText).toBe('string');
+    expect(Array.isArray(aiRes.body.data.hashtags)).toBe(true);
   });
 });

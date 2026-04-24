@@ -8,6 +8,7 @@ import postRoutes from './routes/post_routes';
 import commentRoutes from './routes/comment_routes';
 import conversationRoutes from './routes/conversation_routes';
 import messageRoutes from './routes/message_routes';
+import aiRoutes from './routes/ai_routes';
 import { errorHandler } from './middleware/error_handler';
 import { setupSocketHandlers } from './socket/socket_handlers';
 import path from 'path';
@@ -44,6 +45,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(errorHandler);
 
