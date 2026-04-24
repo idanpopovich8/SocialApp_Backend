@@ -31,6 +31,15 @@ interface PaginationParams {
   skip: number;
 }
 
+const resolveBaseUrl = (): string => {
+  let base = process.env.BASE_URL;
+  if (!base) {
+    const port = process.env.PORT || 5001;
+    base = `http://localhost:${port}/`;
+  }
+  return base.endsWith('/') ? base : `${base}/`;
+};
+
 const isPopulatedUser = (value: unknown): value is PopulatedUserRef => {
   return (
     typeof value === 'object' &&
@@ -94,13 +103,7 @@ export const createPost = async (
 
     let fullImageUrl = '';
     if (req.file) {
-      // Dynamic Base URL Logic
-      let base = process.env.BASE_URL;
-      if (!base) {
-        const port = process.env.PORT || 5001;
-        base = `http://localhost:${port}/`;
-      }
-
+      const base = resolveBaseUrl();
       fullImageUrl = base + 'public/uploads/posts/' + req.file.filename;
     }
 
@@ -241,11 +244,7 @@ export const updatePost = async (
         }
       }
 
-      let base = process.env.BASE_URL;
-      if (!base) {
-        const port = process.env.PORT || 5001;
-        base = `http://localhost:${port}/`;
-      }
+      const base = resolveBaseUrl();
       post.image = base + 'public/uploads/posts/' + req.file.filename;
     }
 
