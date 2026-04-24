@@ -8,6 +8,21 @@ const mockResponse = () => {
 };
 
 describe('message_controller unit', () => {
+  it('returns 401 when user missing on edit', async () => {
+    const req: any = {
+      params: { messageId: '507f1f77bcf86cd799439011' },
+      body: { content: 'hello' },
+      user: undefined,
+    };
+    const res = mockResponse();
+    const next = jest.fn();
+
+    await editMessage(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(next.mock.calls[0][0].status).toBe(401);
+  });
+
   it('returns 400 when content missing on edit', async () => {
     const req: any = {
       params: { messageId: '507f1f77bcf86cd799439011' },

@@ -5,6 +5,16 @@ import MessageModel from '../models/message_model';
 import ConversationModel from '../models/conversation_model';
 import { AuthRequest } from '../middleware/auth_middleware';
 
+const toObjectId = (
+  value: string | undefined,
+  fieldName: string,
+): mongoose.Types.ObjectId => {
+  if (!value || !mongoose.Types.ObjectId.isValid(value)) {
+    throw createError(400, `${fieldName} is invalid`);
+  }
+  return new mongoose.Types.ObjectId(value);
+};
+
 /**
  * Get message history for a conversation (paginated)
  */
@@ -15,14 +25,15 @@ export const getConversationMessages = async (
 ) => {
   try {
     const { conversationId } = req.params;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
     const limit = parseInt(req.query.limit as string) || 50;
     const skip = parseInt(req.query.skip as string) || 0;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
     if (!conversationId) throw createError(400, 'Conversation ID is required');
 
-    const convoId = new mongoose.Types.ObjectId(conversationId as string);
+    const userId = toObjectId(requesterId, 'User ID');
+    const convoId = toObjectId(conversationId as string, 'Conversation ID');
 
     // Verify user is participant
     const conversation = await ConversationModel.findById(convoId);
@@ -70,12 +81,13 @@ export const getMessage = async (
 ) => {
   try {
     const { messageId } = req.params;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
     if (!messageId) throw createError(400, 'Message ID is required');
 
-    const msgId = new mongoose.Types.ObjectId(messageId as string);
+    const userId = toObjectId(requesterId, 'User ID');
+    const msgId = toObjectId(messageId as string, 'Message ID');
 
     const message = await MessageModel.findById(msgId).populate(
       'senderId',
@@ -118,13 +130,14 @@ export const editMessage = async (
   try {
     const { messageId } = req.params;
     const { content } = req.body;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
     if (!messageId) throw createError(400, 'Message ID is required');
     if (!content) throw createError(400, 'Content is required');
 
-    const msgId = new mongoose.Types.ObjectId(messageId as string);
+    const userId = toObjectId(requesterId, 'User ID');
+    const msgId = toObjectId(messageId as string, 'Message ID');
 
     const message = await MessageModel.findById(msgId);
 
@@ -161,12 +174,13 @@ export const deleteMessage = async (
 ) => {
   try {
     const { messageId } = req.params;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
     if (!messageId) throw createError(400, 'Message ID is required');
 
-    const msgId = new mongoose.Types.ObjectId(messageId as string);
+    const userId = toObjectId(requesterId, 'User ID');
+    const msgId = toObjectId(messageId as string, 'Message ID');
 
     const message = await MessageModel.findById(msgId);
 
