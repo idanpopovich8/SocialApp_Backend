@@ -26,6 +26,11 @@ interface PopulatedUserRef {
   image?: string;
 }
 
+interface PaginationParams {
+  limit: number;
+  skip: number;
+}
+
 const isPopulatedUser = (value: unknown): value is PopulatedUserRef => {
   return (
     typeof value === 'object' &&
@@ -53,6 +58,23 @@ const serializeComments = (comments: unknown): SerializedComment[] => {
         },
       };
     });
+};
+
+const parsePagination = (
+  limitRaw: unknown,
+  skipRaw: unknown,
+): PaginationParams => {
+  const limit = Number(limitRaw ?? 10);
+  const skip = Number(skipRaw ?? 0);
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw createError(400, 'limit must be an integer between 1 and 100');
+  }
+  if (!Number.isInteger(skip) || skip < 0) {
+    throw createError(400, 'skip must be a non-negative integer');
+  }
+
+  return { limit, skip };
 };
 
 // ------------------------------------------------------------------
@@ -122,6 +144,10 @@ export const getAllPosts = async (
   next: NextFunction,
 ) => {
   try {
+    const { limit, skip } = parsePagination(req.query.limit, req.query.skip);
+    const filter = { isDeleted: { $ne: true } };
+
+    const total = await PostModel.countDocuments(filter);
     const posts = await PostModel.find({ isDeleted: { $ne: true } })
       .populate('createdBy', 'fullName image')
       .populate({
@@ -131,7 +157,9 @@ export const getAllPosts = async (
           select: 'fullName image',
         },
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
 
     const formattedPosts = posts
       .filter((post) => isPopulatedUser(post.createdBy))
@@ -157,7 +185,13 @@ export const getAllPosts = async (
         };
       });
 
-    res.status(200).json(formattedPosts);
+    res.status(200).json({
+      items: formattedPosts,
+      total,
+      hasMore: skip + limit < total,
+      limit,
+      skip,
+    });
   } catch (error) {
     next(error);
   }
@@ -283,15 +317,19 @@ export const getPostsByUserId = async (
 ) => {
   try {
     const { userId } = req.params;
+    const { limit, skip } = parsePagination(req.query.limit, req.query.skip);
 
     if (!userId || typeof userId !== 'string') {
       throw createError(400, 'User ID is required');
     }
 
-    const posts = await PostModel.find({
+    const filter = {
       createdBy: new mongoose.Types.ObjectId(userId),
       isDeleted: { $ne: true },
-    })
+    };
+
+    const total = await PostModel.countDocuments(filter);
+    const posts = await PostModel.find(filter)
       .populate('createdBy', 'fullName image')
       .populate({
         path: 'comments',
@@ -300,7 +338,9 @@ export const getPostsByUserId = async (
           select: 'fullName image',
         },
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
 
     const formattedPosts = posts
       .filter((post) => isPopulatedUser(post.createdBy))
@@ -324,7 +364,13 @@ export const getPostsByUserId = async (
         };
       });
 
-    res.status(200).json(formattedPosts);
+    res.status(200).json({
+      items: formattedPosts,
+      total,
+      hasMore: skip + limit < total,
+      limit,
+      skip,
+    });
   } catch (error) {
     next(error);
   }
