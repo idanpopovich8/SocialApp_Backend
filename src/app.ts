@@ -11,6 +11,8 @@ import messageRoutes from './routes/message_routes';
 import { errorHandler } from './middleware/error_handler';
 import { setupSocketHandlers } from './socket/socket_handlers';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './docs/swagger';
 
 dotenv.config();
 
@@ -35,16 +37,15 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(errorHandler);
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Hello, TypeScript Backend!');
 });
 
-// 🟢 Create HTTP server for Socket.io compatibility
 const server = http.createServer(app);
 
-// 🟢 Initialize Socket.io with CORS configuration
 const io = new SocketIOServer(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -52,17 +53,15 @@ const io = new SocketIOServer(server, {
   },
 });
 
-// 🟢 Make io globally accessible to controllers and routes
 app.set('io', io);
 
-// 🟢 Setup all Socket.io event handlers
 setupSocketHandlers(io);
 
-// 🟢 Start server using HTTP server instead of app.listen()
-server.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
-  console.log(`Socket.io is ready for real-time connections`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+    console.log(`Socket.io is ready for real-time connections`);
+  });
+}
 
-// 🟢 Export io for use in socket handlers
-export { io };
+export { app, server, io };

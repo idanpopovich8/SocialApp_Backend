@@ -22,26 +22,22 @@ export const createComment = async (
     if (!userId) throw createError(401, 'User not authenticated');
     if (!content) throw createError(400, 'Content is required');
 
-    // 🟢 ADD THIS CHECK: It guarantees postId is a single string
     if (!postId || typeof postId !== 'string') {
       throw createError(400, 'Valid Post ID is required');
     }
 
-    // 1. Verify the post actually exists (and isn't soft-deleted)
     const post = await PostModel.findOne({
       _id: postId,
       isDeleted: { $ne: true },
     });
     if (!post) throw createError(404, 'Post not found');
 
-    // 2. Create the comment (No need to update the Post document!)
     const newComment = await CommentModel.create({
       postId: new mongoose.Types.ObjectId(postId),
       content,
       createdBy: new mongoose.Types.ObjectId(userId),
     });
 
-    // 3. Populate creator info for the frontend
     await newComment.populate('createdBy', 'fullName image');
     const creator = newComment.createdBy as unknown as IUserDocument;
 
@@ -69,7 +65,7 @@ export const updateComment = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params; // Comment ID
+    const { id } = req.params;
     const { content } = req.body;
     const userId = req.user?._id;
 
@@ -79,7 +75,6 @@ export const updateComment = async (
     const comment = await CommentModel.findById(id);
     if (!comment) throw createError(404, 'Comment not found');
 
-    // Verify ownership
     if (comment.createdBy.toString() !== userId) {
       throw createError(403, 'You are not authorized to edit this comment');
     }
@@ -114,7 +109,7 @@ export const deleteComment = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params; // Comment ID
+    const { id } = req.params;
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
@@ -122,12 +117,10 @@ export const deleteComment = async (
     const comment = await CommentModel.findById(id);
     if (!comment) throw createError(404, 'Comment not found');
 
-    // Verify ownership
     if (comment.createdBy.toString() !== userId) {
       throw createError(403, 'You are not authorized to delete this comment');
     }
 
-    // Delete the comment directly. Again, NO need to touch the Post model!
     await CommentModel.findByIdAndDelete(id);
 
     res.status(200).json({ message: 'Comment deleted successfully' });

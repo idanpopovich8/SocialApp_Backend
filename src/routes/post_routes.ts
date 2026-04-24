@@ -17,7 +17,6 @@ router.get('/', getAllPosts);
 router.get('/user/:userId', getPostsByUserId);
 router.get('/:id', getPostById);
 
-// 🟢 Add uploadMiddleware('posts').single('file') BEFORE the controller
 router.post(
   '/',
   authMiddleware,

@@ -27,7 +27,6 @@ const conversationSchema = new Schema<IConversationDocument>(
   { timestamps: true },
 );
 
-// 🟢 Index for finding user's conversations efficiently
 conversationSchema.index({ participants: 1, updatedAt: -1 });
 
 const ConversationModel = mongoose.model<IConversationDocument>(

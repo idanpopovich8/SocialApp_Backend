@@ -11,7 +11,7 @@ const messageSchema = new Schema<IMessageDocument>(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Conversation',
       required: true,
-      index: true, // 🟢 Index for fast queries by conversation
+      index: true,
     },
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -26,7 +26,6 @@ const messageSchema = new Schema<IMessageDocument>(
   { timestamps: true },
 );
 
-// 🟢 Compound index for efficient message history queries
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 
 const MessageModel = mongoose.model<IMessageDocument>('Message', messageSchema);

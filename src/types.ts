@@ -32,17 +32,14 @@ export interface IPost {
   content: string;
   image?: string;
   likes: Types.ObjectId[];
-  likesCount?: number; // 🟢 NEW: Track number of likes
-
-  // 🟢 NOTE: In the DB, this doesn't exist.
-  // But after "Virtual Populate", Mongoose fills this array for us.
+  likesCount?: number;
   comments: IComment[];
 
   commentsCount?: number;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt?: Date;
-  isDeleted?: boolean; // 🟢 NEW: For Soft Delete
+  isDeleted?: boolean;
 }
 // 5. Message Interface (for real-time messaging)
 export interface IMessage {
