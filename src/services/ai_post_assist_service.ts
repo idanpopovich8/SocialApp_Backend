@@ -27,6 +27,7 @@ const cacheStore = new Map<string, CacheEntry>();
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_RATE_LIMIT = 20;
 const DEFAULT_CACHE_TTL_SECONDS = 600;
+const MAX_DRAFT_LENGTH = 5000;
 
 const normalize = (
   input: PostAssistInput,
@@ -130,6 +131,13 @@ const mockAssist = (input: PostAssistInput): PostAssistOutput => {
 export const generatePostAssist = async (
   input: PostAssistInput,
 ): Promise<PostAssistOutput> => {
+  if (input.draft.length > MAX_DRAFT_LENGTH) {
+    throw createError(
+      400,
+      `draft must be at most ${MAX_DRAFT_LENGTH} characters`,
+    );
+  }
+
   enforceRateLimit(input.userId);
   const cacheKey = hashKey(
     `${input.userId}:${input.draft}:${input.intent || ''}:${input.tone || ''}`,
@@ -138,6 +146,7 @@ export const generatePostAssist = async (
   if (cached) return cached;
 
   if (process.env.AI_MOCK_MODE === 'true') {
+    console.log(`[AI] mock mode assist for user ${input.userId}`);
     const mocked = mockAssist(input);
     setCache(cacheKey, mocked);
     return mocked;
@@ -151,25 +160,32 @@ export const generatePostAssist = async (
   const client = new OpenAI({ apiKey });
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.4,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You improve posts for a community app. Return strict JSON only with required keys.',
-      },
-      {
-        role: 'user',
-        content: buildPrompt(input),
-      },
-    ],
-  });
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.4,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You improve posts for a community app. Return strict JSON only with required keys.',
+        },
+        {
+          role: 'user',
+          content: buildPrompt(input),
+        },
+      ],
+    });
+  } catch {
+    console.error(`[AI] request failed for user ${input.userId}`);
+    throw createError(502, 'AI request failed');
+  }
 
   const rawText = completion.choices[0]?.message?.content;
   if (!rawText) {
+    console.error(`[AI] empty response for user ${input.userId}`);
     throw createError(502, 'AI did not return content');
   }
 
@@ -177,10 +193,19 @@ export const generatePostAssist = async (
   try {
     parsed = JSON.parse(rawText) as Partial<PostAssistOutput>;
   } catch {
-    throw createError(502, 'AI response parsing failed');
+    console.error(`[AI] parsing failed for user ${input.userId}`);
+    parsed = {};
   }
 
   const normalized = normalize(input, parsed);
   setCache(cacheKey, normalized);
+  console.log(`[AI] assist generated for user ${input.userId}`);
   return normalized;
+};
+
+export const __testing = {
+  clearStores: () => {
+    rateStore.clear();
+    cacheStore.clear();
+  },
 };

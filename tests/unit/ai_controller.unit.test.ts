@@ -29,6 +29,17 @@ describe('ai_controller unit', () => {
     expect(next.mock.calls[0][0].status).toBe(400);
   });
 
+  it('returns 400 when draft too long', async () => {
+    const req: any = { user: { _id: 'u1' }, body: { draft: 'a'.repeat(5001) } };
+    const res = mockResponse();
+    const next = jest.fn();
+
+    await postAssist(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(next.mock.calls[0][0].status).toBe(400);
+  });
+
   it('returns AI suggestion on success', async () => {
     (generatePostAssist as jest.Mock).mockResolvedValue({
       originalText: 'a',

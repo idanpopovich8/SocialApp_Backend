@@ -12,6 +12,8 @@ type AssistBody = {
   tone?: 'friendly' | 'formal' | 'short';
 };
 
+const MAX_DRAFT_LENGTH = 5000;
+
 export const postAssist = async (
   req: AuthRequest,
   res: Response,
@@ -28,6 +30,12 @@ export const postAssist = async (
       throw createError(
         400,
         'draft is required and must contain at least 10 characters',
+      );
+    }
+    if (draft.length > MAX_DRAFT_LENGTH) {
+      throw createError(
+        400,
+        `draft must be at most ${MAX_DRAFT_LENGTH} characters`,
       );
     }
 
