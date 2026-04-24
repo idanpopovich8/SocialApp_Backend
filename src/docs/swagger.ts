@@ -34,6 +34,21 @@ export const swaggerSpec = {
           refreshToken: { type: 'string' },
         },
       },
+      UserProfileResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          fullName: { type: 'string' },
+          email: { type: 'string' },
+          image: { type: 'string' },
+          onlineStatus: {
+            type: 'string',
+            enum: ['online', 'away', 'offline'],
+          },
+          lastSeen: { type: 'string', format: 'date-time', nullable: true },
+          message: { type: 'string' },
+        },
+      },
       UserSummary: {
         type: 'object',
         properties: {
@@ -69,6 +84,19 @@ export const swaggerSpec = {
             items: { $ref: '#/components/schemas/Comment' },
           },
           createdBy: { $ref: '#/components/schemas/UserSummary' },
+        },
+      },
+      PaginatedPostsResponse: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Post' },
+          },
+          total: { type: 'number' },
+          hasMore: { type: 'boolean' },
+          limit: { type: 'number' },
+          skip: { type: 'number' },
         },
       },
       Conversation: {
@@ -266,19 +294,79 @@ export const swaggerSpec = {
         responses: { '200': { description: 'OK' } },
       },
     },
-    '/api/posts': {
+    '/api/auth/me': {
       get: {
-        tags: ['Posts'],
-        summary: 'Get all posts',
+        tags: ['Auth'],
+        summary: 'Get authenticated user profile',
+        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'OK',
             content: {
               'application/json': {
-                schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/Post' },
+                schema: { $ref: '#/components/schemas/UserProfileResponse' },
+              },
+            },
+          },
+          '401': { description: 'Unauthorized' },
+        },
+      },
+      put: {
+        tags: ['Auth'],
+        summary: 'Update authenticated user profile (name/image)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: false,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  fullName: { type: 'string', minLength: 2 },
+                  image: { type: 'string', format: 'binary' },
                 },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/UserProfileResponse' },
+              },
+            },
+          },
+          '400': { description: 'Invalid input' },
+          '401': { description: 'Unauthorized' },
+        },
+      },
+    },
+    '/api/posts': {
+      get: {
+        tags: ['Posts'],
+        summary: 'Get all posts',
+        parameters: [
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+          {
+            name: 'skip',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 0, default: 0 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/PaginatedPostsResponse' },
               },
             },
           },
@@ -365,8 +453,29 @@ export const swaggerSpec = {
             required: true,
             schema: { type: 'string' },
           },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+          {
+            name: 'skip',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 0, default: 0 },
+          },
         ],
-        responses: { '200': { description: 'OK' } },
+        responses: {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/PaginatedPostsResponse' },
+              },
+            },
+          },
+        },
       },
     },
     '/api/posts/{id}/like': {
