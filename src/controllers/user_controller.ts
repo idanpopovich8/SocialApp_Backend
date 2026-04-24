@@ -33,7 +33,7 @@ const resolveBaseUrl = (): string => {
     const port = process.env.PORT || 5001;
     base = `http://localhost:${port}/`;
   }
-  return base;
+  return base.endsWith('/') ? base : `${base}/`;
 };
 
 // ------------------------------------------------------------------
