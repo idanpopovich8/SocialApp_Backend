@@ -8,6 +8,8 @@ export interface IUser {
   password: string;
   image?: string;
   refreshTokens?: string[];
+  onlineStatus?: 'online' | 'away' | 'offline';
+  lastSeen?: Date;
 }
 
 // 2. Like Interface
