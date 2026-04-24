@@ -5,10 +5,55 @@ import mongoose from 'mongoose';
 import PostModel from '../models/post_model';
 import { IUserDocument } from '../models/user_model';
 import { ICommentDocument } from '../models/comment_model';
-import { ILike } from '../types';
 import { AuthRequest } from '../middleware/auth_middleware';
 import createError from 'http-errors';
 import '../models/comment_model';
+
+interface SerializedComment {
+  id: string;
+  content: string;
+  createdAt: Date;
+  createdBy: {
+    id: string;
+    fullName: string;
+    image: string | undefined;
+  };
+}
+
+interface PopulatedUserRef {
+  _id: mongoose.Types.ObjectId;
+  fullName: string;
+  image?: string;
+}
+
+const isPopulatedUser = (value: unknown): value is PopulatedUserRef => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '_id' in value &&
+    'fullName' in value
+  );
+};
+
+const serializeComments = (comments: unknown): SerializedComment[] => {
+  if (!Array.isArray(comments)) return [];
+
+  return (comments as ICommentDocument[])
+    .filter((comment) => isPopulatedUser(comment.createdBy))
+    .map((comment) => {
+      const commentCreator = comment.createdBy as unknown as PopulatedUserRef;
+      return {
+        id: comment._id.toString(),
+        content: comment.content,
+        createdAt: comment.createdAt,
+        createdBy: {
+          id: commentCreator._id.toString(),
+          fullName: commentCreator.fullName,
+          image: commentCreator.image,
+        },
+      };
+    });
+};
 
 // ------------------------------------------------------------------
 // Create a new Post
@@ -90,43 +135,29 @@ export const getAllPosts = async (
       })
       .sort({ createdAt: -1 });
 
-    const formattedPosts = posts.map((post) => {
-      const creator = post.createdBy as unknown as IUserDocument;
+    const formattedPosts = posts
+      .filter((post) => isPopulatedUser(post.createdBy))
+      .map((post) => {
+        const creator = post.createdBy as unknown as PopulatedUserRef;
+        const comments = serializeComments(post.comments);
+        return {
+          id: post._id.toString(),
+          content: post.content,
+          image: post.image,
+          createdAt: post.createdAt,
+          commentsCount: comments.length,
+          likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
 
-      return {
-        id: post._id.toString(),
-        content: post.content,
-        image: post.image,
-        createdAt: post.createdAt,
-        commentsCount: post.comments ? post.comments.length : 0,
-        likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+          likes: post.likes.map((likeId) => likeId.toString()),
+          comments,
 
-        likes: post.likes.map((likeId: any) => likeId.toString()),
-
-        comments: post.comments
-          ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
-              const commentCreator =
-                comment.createdBy as unknown as IUserDocument;
-              return {
-                id: comment._id.toString(),
-                content: comment.content,
-                createdAt: comment.createdAt,
-                createdBy: {
-                  id: commentCreator._id.toString(),
-                  fullName: commentCreator.fullName,
-                  image: commentCreator.image,
-                },
-              };
-            })
-          : [],
-
-        createdBy: {
-          id: creator._id.toString(),
-          fullName: creator.fullName,
-          image: creator.image,
-        },
-      };
-    });
+          createdBy: {
+            id: creator._id.toString(),
+            fullName: creator.fullName,
+            image: creator.image,
+          },
+        };
+      });
 
     res.status(200).json(formattedPosts);
   } catch (error) {
@@ -204,7 +235,8 @@ export const updatePost = async (
       populate: { path: 'createdBy', select: 'fullName image' },
     });
 
-    const creator = post.createdBy as unknown as IUserDocument;
+    const creator = post.createdBy as unknown as PopulatedUserRef;
+    const comments = serializeComments(post.comments);
 
     res.status(200).json({
       id: post._id.toString(),
@@ -212,23 +244,8 @@ export const updatePost = async (
       image: post.image,
       likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
       likes: post.likes,
-      comments: post.comments
-        ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
-            const commentCreator =
-              comment.createdBy as unknown as IUserDocument;
-            return {
-              id: comment._id.toString(),
-              content: comment.content,
-              createdAt: comment.createdAt,
-              createdBy: {
-                id: commentCreator._id.toString(),
-                fullName: commentCreator.fullName,
-                image: commentCreator.image,
-              },
-            };
-          })
-        : [],
-      commentsCount: post.comments ? post.comments.length : 0,
+      comments,
+      commentsCount: comments.length,
       createdBy: {
         id: creator._id.toString(),
         fullName: creator.fullName,
@@ -299,39 +316,27 @@ export const getPostsByUserId = async (
       })
       .sort({ createdAt: -1 });
 
-    const formattedPosts = posts.map((post) => {
-      const creator = post.createdBy as unknown as IUserDocument;
-      return {
-        id: post._id.toString(),
-        content: post.content,
-        image: post.image,
-        createdAt: post.createdAt,
-        commentsCount: post.comments ? post.comments.length : 0,
-        likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
-        likes: post.likes.map((likeId: any) => likeId.toString()),
-        comments: post.comments
-          ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
-              const commentCreator =
-                comment.createdBy as unknown as IUserDocument;
-              return {
-                id: comment._id.toString(),
-                content: comment.content,
-                createdAt: comment.createdAt,
-                createdBy: {
-                  id: commentCreator._id.toString(),
-                  fullName: commentCreator.fullName,
-                  image: commentCreator.image,
-                },
-              };
-            })
-          : [],
-        createdBy: {
-          id: creator._id.toString(),
-          fullName: creator.fullName,
-          image: creator.image,
-        },
-      };
-    });
+    const formattedPosts = posts
+      .filter((post) => isPopulatedUser(post.createdBy))
+      .map((post) => {
+        const creator = post.createdBy as unknown as PopulatedUserRef;
+        const comments = serializeComments(post.comments);
+        return {
+          id: post._id.toString(),
+          content: post.content,
+          image: post.image,
+          createdAt: post.createdAt,
+          commentsCount: comments.length,
+          likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
+          likes: post.likes.map((likeId) => likeId.toString()),
+          comments,
+          createdBy: {
+            id: creator._id.toString(),
+            fullName: creator.fullName,
+            image: creator.image,
+          },
+        };
+      });
 
     res.status(200).json(formattedPosts);
   } catch (error) {
@@ -367,34 +372,22 @@ export const getPostById = async (
       throw createError(404, 'Post not found');
     }
 
-    const creator = post.createdBy as unknown as IUserDocument;
+    if (!isPopulatedUser(post.createdBy)) {
+      throw createError(500, 'Post creator data is corrupted');
+    }
+    const creator = post.createdBy as unknown as PopulatedUserRef;
+    const comments = serializeComments(post.comments);
 
     const formattedPost = {
       id: post._id.toString(),
       content: post.content,
       image: post.image,
       createdAt: post.createdAt,
-      commentsCount: post.comments ? post.comments.length : 0,
+      commentsCount: comments.length,
       likesCount: post.likesCount || 0, // 🟢 NEW: Include likes count
 
-      likes: post.likes.map((likeId: any) => likeId.toString()),
-
-      comments: post.comments
-        ? (post.comments as unknown as ICommentDocument[]).map((comment) => {
-            const commentCreator =
-              comment.createdBy as unknown as IUserDocument;
-            return {
-              id: comment._id.toString(),
-              content: comment.content,
-              createdAt: comment.createdAt,
-              createdBy: {
-                id: commentCreator._id.toString(),
-                fullName: commentCreator.fullName,
-                image: commentCreator.image,
-              },
-            };
-          })
-        : [],
+      likes: post.likes.map((likeId) => likeId.toString()),
+      comments,
 
       createdBy: {
         id: creator._id.toString(),
@@ -434,18 +427,18 @@ export const toggleLike = async (
 
     // 🟢 FIX 1: Check the array of ObjectIds directly
     const userAlreadyLiked = post.likes.some(
-      (likeId: any) => likeId.toString() === userId.toString(),
+      (likeId) => likeId.toString() === userId.toString(),
     );
 
     if (userAlreadyLiked) {
       // 🟢 FIX 2: Filter out the specific ObjectId
       post.likes = post.likes.filter(
-        (likeId: any) => likeId.toString() !== userId.toString(),
+        (likeId) => likeId.toString() !== userId.toString(),
       );
       post.likesCount = Math.max(0, (post.likesCount || 0) - 1); // 🟢 NEW: Decrement count
     } else {
       // 🟢 FIX 3: Push ONLY the ObjectId, not an object
-      post.likes.push(new mongoose.Types.ObjectId(userId) as any);
+      post.likes.push(new mongoose.Types.ObjectId(userId));
       post.likesCount = (post.likesCount || 0) + 1; // 🟢 NEW: Increment count
     }
 

@@ -29,9 +29,6 @@ const messageSchema = new Schema<IMessageDocument>(
 // 🟢 Compound index for efficient message history queries
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 
-const MessageModel = mongoose.model<IMessageDocument>(
-  'Message',
-  messageSchema,
-);
+const MessageModel = mongoose.model<IMessageDocument>('Message', messageSchema);
 
 export default MessageModel;

@@ -31,7 +31,7 @@ export interface IPost {
   _id?: Types.ObjectId;
   content: string;
   image?: string;
-  likes: ILike[];
+  likes: Types.ObjectId[];
   likesCount?: number; // 🟢 NEW: Track number of likes
 
   // 🟢 NOTE: In the DB, this doesn't exist.

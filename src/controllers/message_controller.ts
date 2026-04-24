@@ -83,6 +83,16 @@ export const getMessage = async (
     );
 
     if (!message) throw createError(404, 'Message not found');
+    const conversation = await ConversationModel.findById(
+      message.conversationId,
+    );
+    if (!conversation) throw createError(404, 'Conversation not found');
+    const isParticipant = conversation.participants.some((p) =>
+      p.equals(userId),
+    );
+    if (!isParticipant) {
+      throw createError(403, 'Not a participant in this conversation');
+    }
 
     res.status(200).json({
       messageId: message._id.toString(),

@@ -2,6 +2,7 @@ import { Socket, Server as SocketIOServer } from 'socket.io';
 import { socketAuthMiddleware } from '../middleware/socket_auth_middleware';
 import { setupConversationHandlers } from './conversation_handlers';
 import { setupMessageHandlers } from './message_handlers';
+import { setupPresenceHandlers } from './presence_handlers';
 
 /**
  * Main Socket.io event handler setup
@@ -22,6 +23,7 @@ export const setupSocketHandlers = (io: SocketIOServer) => {
     // Setup feature-specific event handlers
     setupConversationHandlers(socket, io);
     setupMessageHandlers(socket, io);
+    setupPresenceHandlers(socket, io);
 
     // Handle disconnection
     socket.on('disconnect', () => {
