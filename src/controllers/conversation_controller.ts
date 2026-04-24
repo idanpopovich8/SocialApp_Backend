@@ -5,6 +5,16 @@ import ConversationModel from '../models/conversation_model';
 import MessageModel from '../models/message_model';
 import { AuthRequest } from '../middleware/auth_middleware';
 
+const toObjectId = (
+  value: string,
+  fieldName: string,
+): mongoose.Types.ObjectId => {
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw createError(400, `${fieldName} is invalid`);
+  }
+  return new mongoose.Types.ObjectId(value);
+};
+
 /**
  * Create a new conversation
  */
@@ -18,15 +28,21 @@ export const createConversation = async (
     const { participantIds } = req.body;
 
     if (!userId) throw createError(401, 'User not authenticated');
-    if (!participantIds || !Array.isArray(participantIds)) {
+    if (
+      !participantIds ||
+      !Array.isArray(participantIds) ||
+      participantIds.some((id: unknown) => typeof id !== 'string')
+    ) {
       throw createError(400, 'participantIds must be an array');
     }
 
     // Ensure creator is included
-    const allParticipants = [
-      userId,
-      ...participantIds.filter((id: string) => id !== userId),
-    ].map((id: string) => new mongoose.Types.ObjectId(id));
+    const dedupedParticipantIds = Array.from(
+      new Set(participantIds.filter((id: string) => id !== userId)),
+    );
+    const allParticipants = [userId, ...dedupedParticipantIds].map(
+      (id: string) => toObjectId(id, 'participantId'),
+    );
 
     const conversation = await ConversationModel.create({
       participants: allParticipants,
@@ -53,11 +69,12 @@ export const getUserConversations = async (
   next: NextFunction,
 ) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = parseInt(req.query.skip as string) || 0;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
+    const userId = toObjectId(requesterId, 'userId');
 
     const conversations = await ConversationModel.find({
       participants: userId,
@@ -99,14 +116,16 @@ export const getConversation = async (
 ) => {
   try {
     const { conversationId } = req.params;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
     const limit = parseInt(req.query.messageLimit as string) || 50;
     const skip = parseInt(req.query.messageSkip as string) || 0;
 
-    if (!userId) throw createError(401, 'User not authenticated');
-    if (!conversationId) throw createError(400, 'Conversation ID is required');
-
-    const convoId = new mongoose.Types.ObjectId(conversationId as string);
+    if (!requesterId) throw createError(401, 'User not authenticated');
+    if (!conversationId || typeof conversationId !== 'string') {
+      throw createError(400, 'Conversation ID is required');
+    }
+    const userId = toObjectId(requesterId, 'userId');
+    const convoId = toObjectId(conversationId, 'Conversation ID');
 
     // Verify user is participant
     const conversation = await ConversationModel.findById(convoId);
@@ -160,18 +179,25 @@ export const addParticipant = async (
   try {
     const { conversationId } = req.params;
     const { newUserId } = req.body;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
 
-    if (!userId) throw createError(401, 'User not authenticated');
-    if (!conversationId) throw createError(400, 'Conversation ID is required');
-    if (!newUserId) throw createError(400, 'New user ID is required');
-
-    const convoId = new mongoose.Types.ObjectId(conversationId as string);
-    const newUserObjectId = new mongoose.Types.ObjectId(newUserId);
+    if (!requesterId) throw createError(401, 'User not authenticated');
+    if (!conversationId || typeof conversationId !== 'string') {
+      throw createError(400, 'Conversation ID is required');
+    }
+    if (!newUserId || typeof newUserId !== 'string') {
+      throw createError(400, 'New user ID is required');
+    }
+    const userId = toObjectId(requesterId, 'userId');
+    const convoId = toObjectId(conversationId, 'Conversation ID');
+    const newUserObjectId = toObjectId(newUserId, 'New user ID');
 
     const conversation = await ConversationModel.findById(convoId);
 
     if (!conversation) throw createError(404, 'Conversation not found');
+    if (!conversation.participants.some((p) => p.equals(userId))) {
+      throw createError(403, 'Not a participant in this conversation');
+    }
 
     // Check if user already in conversation
     if (conversation.participants.some((p) => p.equals(newUserObjectId))) {
@@ -203,17 +229,21 @@ export const leaveConversation = async (
 ) => {
   try {
     const { conversationId } = req.params;
-    const userId = new mongoose.Types.ObjectId(req.user?._id);
+    const requesterId = req.user?._id;
 
-    if (!userId) throw createError(401, 'User not authenticated');
+    if (!requesterId) throw createError(401, 'User not authenticated');
     if (!conversationId || typeof conversationId !== 'string')
       throw createError(400, 'Conversation ID is required');
+    const userId = toObjectId(requesterId, 'userId');
 
-    const convoId = new mongoose.Types.ObjectId(conversationId as string);
+    const convoId = toObjectId(conversationId, 'Conversation ID');
 
     const conversation = await ConversationModel.findById(convoId);
 
     if (!conversation) throw createError(404, 'Conversation not found');
+    if (!conversation.participants.some((p) => p.equals(userId))) {
+      throw createError(403, 'Not a participant in this conversation');
+    }
 
     // Remove user from participants
     conversation.participants = conversation.participants.filter(
