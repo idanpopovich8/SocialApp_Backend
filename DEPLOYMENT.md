@@ -36,6 +36,11 @@ Required production env keys:
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
 - `GOOGLE_CLIENT_ID` (if Google signin is enabled)
+- `OPENAI_API_KEY` (if AI endpoint is enabled)
+- `OPENAI_MODEL` (recommended: `gpt-4o-mini`)
+- `AI_RATE_LIMIT_PER_HOUR`
+- `AI_CACHE_TTL_SECONDS`
+- `AI_MOCK_MODE=false` in production
 
 ## 3) Build and run with PM2
 
@@ -94,10 +99,14 @@ Enable HTTPS with certbot (or org certificate), then force redirect HTTP -> HTTP
 - [ ] HTTPS enabled for backend routes and socket connection
 - [ ] MongoDB is local on server (not Atlas/cloud)
 - [ ] Mongo auth enabled (username/password)
+- [ ] `.env` created from `.env.example` and secrets are not committed
 - [ ] `npm run lint` passes
 - [ ] `npm run build` passes
 - [ ] `npm test` passes
 - [ ] `/api-docs` accessible in production
+- [ ] `GET /api/posts?limit=10&skip=0` returns paginated payload
+- [ ] `GET /api/auth/me` works with bearer token
+- [ ] Socket handshake works over `wss://your-domain.example/socket.io/`
 
 ## 6) Smoke verification
 
@@ -105,7 +114,30 @@ After deploy, verify:
 
 ```bash
 curl -i https://your-domain.example/
-curl -i https://your-domain.example/api/posts
+curl -i "https://your-domain.example/api/posts?limit=10&skip=0"
 curl -i https://your-domain.example/api-docs/
 pm2 status
+```
+
+Auth + profile smoke:
+
+```bash
+# login and extract token manually from response
+curl -i -X POST https://your-domain.example/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"your-user@example.com","password":"your-password"}'
+
+# then verify protected profile route
+curl -i https://your-domain.example/api/auth/me \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+Socket smoke (from browser console or test client):
+
+```javascript
+const s = io("https://your-domain.example", {
+  transports: ["websocket"],
+  auth: { token: "<ACCESS_TOKEN>" },
+});
+s.on("connect", () => console.log("socket connected", s.id));
 ```
