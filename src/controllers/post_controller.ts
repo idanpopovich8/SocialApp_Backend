@@ -95,7 +95,10 @@ export const createPost = async (
   next: NextFunction,
 ) => {
   try {
-    const { content } = req.body;
+    const { content, removeImage } = req.body as {
+      content?: string;
+      removeImage?: string | boolean;
+    };
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
@@ -210,7 +213,10 @@ export const updatePost = async (
 ) => {
   try {
     const { id } = req.params;
-    const { content } = req.body;
+    const { content, removeImage } = req.body as {
+      content?: string;
+      removeImage?: string | boolean;
+    };
     const userId = req.user?._id;
 
     if (!userId) throw createError(401, 'User not authenticated');
@@ -223,6 +229,9 @@ export const updatePost = async (
     }
 
     if (content) post.content = content;
+
+    const shouldRemoveImage =
+      removeImage === true || removeImage === 'true' || removeImage === '1';
 
     // Replace image and remove old file
     if (req.file) {
@@ -246,6 +255,21 @@ export const updatePost = async (
 
       const base = resolveBaseUrl();
       post.image = base + 'public/uploads/posts/' + req.file.filename;
+    } else if (shouldRemoveImage && post.image) {
+      try {
+        const urlParts = post.image.split('public/');
+        if (urlParts.length > 1) {
+          const relativePath = 'public/' + urlParts[1];
+          const absolutePath = path.join(__dirname, '../../', relativePath);
+          if (fs.existsSync(absolutePath)) {
+            fs.unlinkSync(absolutePath);
+            console.log(`Deleted image: ${absolutePath}`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to delete image:', err);
+      }
+      post.image = '';
     }
 
     await post.save();

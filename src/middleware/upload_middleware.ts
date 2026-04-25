@@ -1,5 +1,6 @@
 import multer, { FileFilterCallback } from 'multer';
 import { Request } from 'express';
+import fs from 'fs';
 import path from 'path';
 
 export const uploadMiddleware = (folderName: string) => {
@@ -9,6 +10,9 @@ export const uploadMiddleware = (folderName: string) => {
         __dirname,
         `../../public/uploads/${folderName}`,
       );
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
       cb(null, uploadPath);
     },
     filename: (req: Request, file: Express.Multer.File, cb) => {
