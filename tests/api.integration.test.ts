@@ -164,6 +164,13 @@ describe('API integration', () => {
     expect(createConversation.status).toBe(201);
     const conversationId = createConversation.body.conversationId as string;
 
+    const duplicateConversation = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${userA.accessToken}`)
+      .send({ participantIds: [userB.userId] });
+    expect(duplicateConversation.status).toBe(200);
+    expect(duplicateConversation.body.conversationId).toBe(conversationId);
+
     const listConversations = await request(app)
       .get('/api/conversations')
       .set('Authorization', `Bearer ${userA.accessToken}`);

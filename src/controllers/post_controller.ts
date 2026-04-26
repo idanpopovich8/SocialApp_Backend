@@ -95,9 +95,8 @@ export const createPost = async (
   next: NextFunction,
 ) => {
   try {
-    const { content, removeImage } = req.body as {
+    const { content } = req.body as {
       content?: string;
-      removeImage?: string | boolean;
     };
     const userId = req.user?._id;
 

@@ -44,6 +44,23 @@ export const createConversation = async (
       (id: string) => toObjectId(id, 'participantId'),
     );
 
+    // Reuse existing direct/group conversation with the same participant set.
+    const existingConversation = await ConversationModel.findOne({
+      participants: {
+        $all: allParticipants,
+        $size: allParticipants.length,
+      },
+    }).populate('participants', 'fullName image email');
+
+    if (existingConversation) {
+      return res.status(200).json({
+        conversationId: existingConversation._id.toString(),
+        participants: existingConversation.participants,
+        createdAt: existingConversation.createdAt,
+        message: 'Conversation already exists',
+      });
+    }
+
     const conversation = await ConversationModel.create({
       participants: allParticipants,
     });
