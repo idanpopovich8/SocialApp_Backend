@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import type { Express } from 'express';
 import dotenv from 'dotenv';
 import MessageModel from '../src/models/message_model';
+import ConversationModel from '../src/models/conversation_model';
 
 let app: Express;
 jest.setTimeout(30000);
@@ -175,6 +176,8 @@ describe('API integration', () => {
       .get('/api/conversations')
       .set('Authorization', `Bearer ${userA.accessToken}`);
     expect(listConversations.status).toBe(200);
+    expect(listConversations.body.total).toBe(0);
+    expect(listConversations.body.conversations).toHaveLength(0);
 
     const conversationDetails = await request(app)
       .get(`/api/conversations/${conversationId}`)
@@ -186,6 +189,17 @@ describe('API integration', () => {
       senderId: new mongoose.Types.ObjectId(userA.userId),
       content: 'Integration message',
     });
+    await ConversationModel.findByIdAndUpdate(conversationId, {
+      lastMessage: message._id,
+      lastMessageAt: new Date(),
+    });
+
+    const listConversationsAfterMessage = await request(app)
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${userA.accessToken}`);
+    expect(listConversationsAfterMessage.status).toBe(200);
+    expect(listConversationsAfterMessage.body.total).toBe(1);
+    expect(listConversationsAfterMessage.body.conversations).toHaveLength(1);
 
     const getMessages = await request(app)
       .get(`/api/messages/conversations/${conversationId}`)
