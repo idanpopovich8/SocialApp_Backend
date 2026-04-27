@@ -27,13 +27,14 @@ const generateRefreshToken = (userId: string) => {
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const resolveBaseUrl = (): string => {
-  let base = process.env.BASE_URL;
-  if (!base) {
-    const port = process.env.PORT || 5001;
-    base = `http://localhost:${port}/`;
+const normalizeImagePath = (image?: string): string => {
+  if (!image) return '';
+  const publicSegment = '/public/';
+  const index = image.indexOf(publicSegment);
+  if (index >= 0) {
+    return image.slice(index);
   }
-  return base.endsWith('/') ? base : `${base}/`;
+  return image;
 };
 
 // ------------------------------------------------------------------
@@ -52,8 +53,7 @@ export const register = async (
 
     let fullImageUrl = '';
     if (req.file) {
-      const base = resolveBaseUrl();
-      fullImageUrl = base + 'public/uploads/users/' + req.file.filename;
+      fullImageUrl = `/public/uploads/users/${req.file.filename}`;
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -76,7 +76,7 @@ export const register = async (
     res.status(201).json({
       id: newUser._id,
       fullName: newUser.fullName,
-      image: newUser.image,
+      image: normalizeImagePath(newUser.image),
       email: newUser.email,
       accessToken,
       refreshToken,
@@ -114,7 +114,7 @@ export const login = async (
     res.status(200).json({
       id: user._id,
       fullName: user.fullName,
-      image: user.image,
+      image: normalizeImagePath(user.image),
       email: user.email,
       accessToken,
       refreshToken,
@@ -245,7 +245,7 @@ export const googleSignin = async (
       id: user._id,
       fullName: user.fullName,
       email: user.email,
-      image: user.image,
+      image: normalizeImagePath(user.image),
       accessToken,
       refreshToken,
     });
@@ -270,7 +270,7 @@ export const getProfile = async (
       id: user._id.toString(),
       fullName: user.fullName,
       email: user.email,
-      image: user.image,
+      image: normalizeImagePath(user.image),
       onlineStatus: user.onlineStatus,
       lastSeen: user.lastSeen,
     });
@@ -303,8 +303,7 @@ export const updateProfile = async (
     }
 
     if (req.file) {
-      const base = resolveBaseUrl();
-      user.image = base + 'public/uploads/users/' + req.file.filename;
+      user.image = `/public/uploads/users/${req.file.filename}`;
     }
 
     await user.save();
@@ -313,7 +312,7 @@ export const updateProfile = async (
       id: user._id.toString(),
       fullName: user.fullName,
       email: user.email,
-      image: user.image,
+      image: normalizeImagePath(user.image),
       onlineStatus: user.onlineStatus,
       lastSeen: user.lastSeen,
       message: 'Profile updated successfully',

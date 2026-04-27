@@ -31,13 +31,14 @@ interface PaginationParams {
   skip: number;
 }
 
-const resolveBaseUrl = (): string => {
-  let base = process.env.BASE_URL;
-  if (!base) {
-    const port = process.env.PORT || 5001;
-    base = `http://localhost:${port}/`;
+const normalizeImagePath = (image?: string): string => {
+  if (!image) return '';
+  const publicSegment = '/public/';
+  const index = image.indexOf(publicSegment);
+  if (index >= 0) {
+    return image.slice(index);
   }
-  return base.endsWith('/') ? base : `${base}/`;
+  return image;
 };
 
 const isPopulatedUser = (value: unknown): value is PopulatedUserRef => {
@@ -105,8 +106,7 @@ export const createPost = async (
 
     let fullImageUrl = '';
     if (req.file) {
-      const base = resolveBaseUrl();
-      fullImageUrl = base + 'public/uploads/posts/' + req.file.filename;
+      fullImageUrl = `/public/uploads/posts/${req.file.filename}`;
     }
 
     // Create Post
@@ -174,7 +174,7 @@ export const getAllPosts = async (
         return {
           id: post._id.toString(),
           content: post.content,
-          image: post.image,
+          image: normalizeImagePath(post.image),
           createdAt: post.createdAt,
           commentsCount: comments.length,
           likesCount: post.likesCount || 0,
@@ -252,8 +252,7 @@ export const updatePost = async (
         }
       }
 
-      const base = resolveBaseUrl();
-      post.image = base + 'public/uploads/posts/' + req.file.filename;
+      post.image = `/public/uploads/posts/${req.file.filename}`;
     } else if (shouldRemoveImage && post.image) {
       try {
         const urlParts = post.image.split('public/');
@@ -285,7 +284,7 @@ export const updatePost = async (
     res.status(200).json({
       id: post._id.toString(),
       content: post.content,
-      image: post.image,
+      image: normalizeImagePath(post.image),
       likesCount: post.likesCount || 0,
       likes: post.likes,
       comments,
@@ -372,7 +371,7 @@ export const getPostsByUserId = async (
         return {
           id: post._id.toString(),
           content: post.content,
-          image: post.image,
+          image: normalizeImagePath(post.image),
           createdAt: post.createdAt,
           commentsCount: comments.length,
           likesCount: post.likesCount || 0,
@@ -435,7 +434,7 @@ export const getPostById = async (
     const formattedPost = {
       id: post._id.toString(),
       content: post.content,
-      image: post.image,
+      image: normalizeImagePath(post.image),
       createdAt: post.createdAt,
       commentsCount: comments.length,
       likesCount: post.likesCount || 0,
