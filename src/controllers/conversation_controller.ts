@@ -93,18 +93,19 @@ export const getUserConversations = async (
     if (!requesterId) throw createError(401, 'User not authenticated');
     const userId = toObjectId(requesterId, 'userId');
 
-    const conversations = await ConversationModel.find({
+    const filter = {
       participants: userId,
-    })
+      lastMessage: { $ne: null },
+    };
+
+    const conversations = await ConversationModel.find(filter)
       .populate('participants', 'fullName image email')
       .populate('lastMessage')
       .sort({ updatedAt: -1 })
       .limit(limit)
       .skip(skip);
 
-    const total = await ConversationModel.countDocuments({
-      participants: userId,
-    });
+    const total = await ConversationModel.countDocuments(filter);
 
     res.status(200).json({
       conversations: conversations.map((conv) => ({
